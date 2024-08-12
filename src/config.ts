@@ -1,0 +1,174 @@
+import { parseArgs } from '@std/cli/parse-args';
+import { green, yellow } from '@std/fmt/colors';
+
+///////////////////////////////// FLAG DEFINITIONS /////////////////////////////////
+export type FlagDefinition = {
+	name: string;
+	des: string;
+	alias?: string;
+};
+/*
+  - consider boolean flags as false unless the user explicitly turns them on
+  - parseArgs() from @std/cli@^1.0.1 behavior:
+    - all boolean flags are included in the result regardless of user input
+    - by default, all boolean flags are set to false unless the user explicitly sets them to true
+*/
+type TboolFlagDef = FlagDefinition;
+/*
+  - if a string flag is passed without a value, use "its" default value.
+  - this differs from parseArgs() from @std/cli@^1.0.1 default behavior, where specifying a default
+    value results in the flag being set to the default regardless of user input, making the flags always truthy (which i dont want)
+  - because of this, post-processing is required after parseArgs (see below)
+*/
+type TstringFlagDef = FlagDefinition & { default: string };
+
+export const boolFlags = [
+	{
+		name: 'help',
+		alias: 'h',
+		des: 'Displays help information about the available flags.',
+	},
+	{
+		name: 'silent',
+		des: 'Suppresses console output of current actions but retains logs in memory.',
+	},
+	{
+		name: 'let-it-go',
+		des:
+			'By default, the application deletes all recently created commits (hard reset) when it encounters an error while creating commits for the currently processed dates. Setting this flag instructs the app to continue processing despite errors.',
+	},
+	{
+		name: 'no-commit',
+		alias: 'n',
+		des: 'Prevents the execution from proceeding to the commit phase.',
+	},
+] as const satisfies TboolFlagDef[];
+export const stringFlags = [
+	{
+		name: 'cleanse',
+		des:
+			"Prevents execution from halting when the repository is unclean by saving uncommitted changes to a commit dated far into the future. Unlike the reset flag, this does not alter the commit history. The flag's value will be used as the commit message.",
+		default: 'CLEANSE',
+	},
+	{
+		name: 'reset',
+		des:
+			"By default, the application creates commits on top of existing ones if any. Setting this flag squashes and hides all previous commits in a commit dated far into the future while keeping the changes. The flag's value will be used as the commit message.",
+		default: 'RESET',
+	},
+	{
+		name: 'direction',
+		alias: 'd',
+		des:
+			"The direction flag determines how to interpret relative day numbers when converting them to dates. For example, '--d + -- 1990-12-23 3' would result in [1990-12-23, 1990-12-26], whereas '-' would result in [1990-12-23, 1990-12-20]. Relative day numbers allows you to quickly and easily set dates relative to the previous date, without manually entering each full date.",
+		default: '+',
+	},
+] as const satisfies TstringFlagDef[];
+
+type TboolFlagNames = typeof boolFlags[number]['name'];
+type TstringFlagNames = typeof stringFlags[number]['name'];
+type TboolFlagMap = { [K in TboolFlagNames]: boolean };
+type TstringFlagMap = { [K in TstringFlagNames]: string };
+export type Flag = TboolFlagNames | TstringFlagNames;
+
+///////////////////////////////// FLAG UTILITIES /////////////////////////////////
+export const createFlagAliases = () => {
+	return [...stringFlags, ...boolFlags].reduce((map, currentFlagDef) => {
+		if ('alias' in currentFlagDef) {
+			map[currentFlagDef.name] = currentFlagDef.alias;
+		}
+		return map;
+	}, {} as { [key: string]: string });
+};
+
+export const { describeFlag, printHelp } = (() => {
+	const map = {} as { [key in Flag]: string };
+	boolFlags.forEach((item) => {
+		map[item.name] =
+			// ('alias' in item) ? green(`  --${item.alias}`) : '' +
+			green((('alias' in item) ? `  --${item.alias}\n` : '') + `  --${item.name}`) +
+			`\n      ${item.des}\n`;
+	});
+	stringFlags.forEach((item) => {
+		map[item.name] = green((('alias' in item) ? `  --${item.alias}\n` : '') + `  --${item.name}`) +
+			`\n      ${item.des}\n` +
+			`\n      default value: "${item.default}"\n`;
+	});
+
+	return {
+		describeFlag: (flag: Flag): string => map[flag],
+		printHelp: () => {
+			console.log(yellow('\nOptions:'));
+			for (const flag in map) {
+				console.log(map[flag as Flag]);
+			}
+		},
+	};
+})();
+
+///////////////////////////////// ARGUMENT PROCESSING /////////////////////////////////
+export const prelog: string[] = []; // buffer for storing log messages before the logger is initialized
+
+const parsedArgs = parseArgs(Deno.args, {
+	boolean: boolFlags.map((item) => item.name),
+	string: stringFlags.map((item) => item.name),
+	alias: createFlagAliases(),
+	unknown: (arg) => {
+		prelog.push(`⚠️  Unknown option: ${arg}`);
+		return false; // exclude the unknown flag from the final result
+	},
+});
+
+/*
+  REASON FOR THE FOLLOWING POST-PROCESSING:
+  issues with parseArgs() from @std/cli@^1.0.1
+
+  |                without default option                  |
+  |------------------------|-------------------------------|
+  | <flag is not present>  | [F] no hello property         |
+  | --hello                | [F] hello := ""               |
+  | --hello Alice          | [T] hello := "Alice"          |
+
+  |          with default option { hello: "World" }        |
+  |------------------------|-------------------------------|
+  | <flag is not present>  | [T] hello := "World"          |
+  | --hello                | [T] hello := "World"          |
+  | --hello Alice          | [T] hello := "Alice"          |
+
+  |  WHAT I EXPECT with default option { hello: "World" }  |
+  |-----------------------|--------------------------------|
+  | <flag is not present> | [F] hello := ""                |
+  | --hello               | [T] hello := "World"           |
+  | --hello Alice         | [T] hello := "Alice"           |
+
+  * `[F]` indicates a falsey value.
+  * `[T]` indicates a truthy value.
+
+  The expectation is that every flag should behave consistently with boolean flags, where their truthy or falsey state is clear and predictable.
+  However, parseArgs() does not align with this expectation when defaults are specified, leading to unexpected truthy values for flags that weren't explicitly set by the user.
+  The post-processing corrects this by ensuring string flags only become truthy when explicitly passed or provided with a value.
+*/
+stringFlags.forEach((flag) => {
+	if (parsedArgs[flag.name] === undefined) {
+		parsedArgs[flag.name] = '';
+	} else if (parsedArgs[flag.name] === '') {
+		parsedArgs[flag.name] = flag.default;
+	}
+});
+type RemoveUndefined<T> = { [K in keyof T]-?: Exclude<T[K], undefined> };
+//The post-processing ensures that parsedArgs has no keys of type string | undefined. This setup forces typeScript to actually work with the correct type.
+type CORRECTED_TYPE_FOR_PARSED_ARGS = RemoveUndefined<typeof parsedArgs>;
+
+///////////////////////////////// THE APP CONFIG /////////////////////////////////
+export interface Config extends TboolFlagMap, TstringFlagMap { // this type definition will throw an error if not all flag name is unique across the 2 sets of flags
+	[key: string]: unknown;
+}
+export const currentConfig = {
+	...parsedArgs as CORRECTED_TYPE_FOR_PARSED_ARGS,
+	throttle: 50,
+	targetFile: 'foo',
+	endUserInfo: {
+		file: 'README.md',
+		msg: 'TODO',
+	},
+} satisfies Config;

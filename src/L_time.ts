@@ -34,7 +34,7 @@ export function normalizeDate(date: Date) {
 	your specific GitHub settings or how GitHub processes dates.
 	*/
 	const timezoneOffset = date.getTimezoneOffset();
-	const utcAdjustedDate = addMinutes(addHours(date, 1), -timezoneOffset);
+	const utcAdjustedDate = addMinutes(addHours(date, 6), -timezoneOffset);
 	return new Date(utcAdjustedDate.toISOString());
 }
 

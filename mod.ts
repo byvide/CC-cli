@@ -92,12 +92,12 @@ try {
 		let previousDate: Date | null = null;
 		let previousDate_onlyDate: Date | null = null; //the point of this is with previousDate, date can be incemeneted by minutes, but when hopping to a new date with relative date numbers, i dont want to keep the incemented part
 
-		if (config.direction && !/^[+-]$/.test(config.direction)) {
+		if (!/^[+-]$/.test(config.direction)) {
 			throw new Error(
 				'Invalid direction flag. The direction flag must be either "+" or "-".',
 			);
 		}
-		const dir = config.direction === '+' ? 1 : -1;
+		const dir = config.direction === '-' ? -1 : 1;
 
 		config._.forEach((item) => {
 			item = item.toString();

@@ -15,12 +15,18 @@ export type FlagDefinition = {
 */
 type TboolFlagDef = FlagDefinition;
 /*
-  - if a string flag is passed without a value, use "its" default value.
-  - this differs from parseArgs() from @std/cli@^1.0.1 default behavior, where specifying a default
-    value results in the flag being set to the default regardless of user input, making the flags always truthy (which i dont want)
-  - because of this, post-processing is required after parseArgs (see below)
+  - if a string flag is passed without a value, use its FALLBACK value
+  - this is different from parseArgs()'s DEFAULT values, where specifying a default value
+    results in the flag being set to the default regardless of user input (user input overrides it), making the flags always truthy,
+	which i dont always want, hence this DEFAULT + FALLBACK setup.
+  - because of this, post-processing is required after parseArgs (see below) to apply the FALLBACK values
 */
-type TstringFlagDef = FlagDefinition & { default: string };
+type TstringFlagDef =
+	& FlagDefinition
+	& (
+		| { fallback: string }
+		| { default: string }
+	);
 
 export const boolFlags = [
 	{
@@ -48,13 +54,13 @@ export const stringFlags = [
 		name: 'cleanse',
 		des:
 			"Prevents execution from halting when the repository is unclean by saving uncommitted changes to a commit dated far into the future. Unlike the reset flag, this does not alter the commit history. The flag's value will be used as the commit message.",
-		default: 'CLEANSE',
+		fallback: 'CLEANSE',
 	},
 	{
 		name: 'reset',
 		des:
 			"By default, the application creates commits on top of existing ones if any. Setting this flag squashes and hides all previous commits in a commit dated far into the future while keeping the changes. The flag's value will be used as the commit message.",
-		default: 'RESET',
+		fallback: 'RESET',
 	},
 	{
 		name: 'direction',
@@ -84,15 +90,18 @@ export const createFlagAliases = () => {
 export const { describeFlag, printHelp } = (() => {
 	const map = {} as { [key in Flag]: string };
 	boolFlags.forEach((item) => {
-		map[item.name] =
-			// ('alias' in item) ? green(`  --${item.alias}`) : '' +
-			green((('alias' in item) ? `  --${item.alias}\n` : '') + `  --${item.name}`) +
+		map[item.name] = green((('alias' in item) ? `  --${item.alias}\n` : '') + `  --${item.name}`) +
 			`\n      ${item.des}\n`;
 	});
 	stringFlags.forEach((item) => {
 		map[item.name] = green((('alias' in item) ? `  --${item.alias}\n` : '') + `  --${item.name}`) +
 			`\n      ${item.des}\n` +
-			`\n      default value: "${item.default}"\n`;
+			(('default' in item)
+				? `\n      default value (is overridden if flag is provided): "${item.default}"\n`
+				: '') +
+			(('fallback' in item)
+				? `\n      fallback value (used if flag is present but has no value): "${item.fallback}"\n`
+				: '');
 	});
 
 	return {
@@ -135,7 +144,7 @@ const parsedArgs = parseArgs(Deno.args, {
   | --hello                | [T] hello := "World"          |
   | --hello Alice          | [T] hello := "Alice"          |
 
-  |  WHAT I EXPECT with default option { hello: "World" }  |
+  |        with custom fallback option { hello: "World" }  |
   |-----------------------|--------------------------------|
   | <flag is not present> | [F] hello := ""                |
   | --hello               | [T] hello := "World"           |
@@ -144,17 +153,28 @@ const parsedArgs = parseArgs(Deno.args, {
   * `[F]` indicates a falsey value.
   * `[T]` indicates a truthy value.
 
-  The expectation is that every flag should behave consistently with boolean flags, where their truthy or falsey state is clear and predictable.
-  However, parseArgs() does not align with this expectation when defaults are specified, leading to unexpected truthy values for flags that weren't explicitly set by the user.
-  The post-processing corrects this by ensuring string flags only become truthy when explicitly passed or provided with a value.
+  The introduction of fallback values aims to achieve a consistent and predictable behavior where string flags only become truthy if explicitly passed or assigned a value.
+  However, parseArgs() defaults may still lead to flags being truthy even when not explicitly set by the user.
+  To address this, the post-processing ensures that string flags utilize the fallback value for truthy states and the default value for standard behavior. This makes the flag behavior more consistent and intuitive.
 */
-stringFlags.forEach((flag) => {
-	if (parsedArgs[flag.name] === undefined) {
-		parsedArgs[flag.name] = '';
-	} else if (parsedArgs[flag.name] === '') {
+stringFlags
+	.filter((flag) => 'default' in flag) //applying defaults manually, because options.default = a function will fuck up the type of the return type of parseArgs()
+	.forEach((flag) => {
+		if ((parsedArgs?.[flag.name])) {
+			return;
+		}
+
 		parsedArgs[flag.name] = flag.default;
-	}
-});
+	});
+stringFlags
+	.filter((flag) => 'fallback' in flag)
+	.forEach((flag) => {
+		if (parsedArgs[flag.name] === undefined) {
+			parsedArgs[flag.name] = '';
+		} else if (parsedArgs[flag.name] === '') {
+			parsedArgs[flag.name] = flag.fallback;
+		}
+	});
 type RemoveUndefined<T> = { [K in keyof T]-?: Exclude<T[K], undefined> };
 //The post-processing ensures that parsedArgs has no keys of type string | undefined. This setup forces typeScript to actually work with the correct type.
 type CORRECTED_TYPE_FOR_PARSED_ARGS = RemoveUndefined<typeof parsedArgs>;

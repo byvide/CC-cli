@@ -50,6 +50,7 @@
 		"include": [
 			"LICENSE",
 			"README.md",
+			"doc_assets/",
 			"deno.jsonc",
 			"mod.ts",
 			"src/"

@@ -1,8 +1,8 @@
 # commit canvas cli
 
-![deno run --allow-run .../CC-cli/mod.ts -- 1970-06-14 1 3 3 1 4 7 3 4 3 3](doc_assets/gh-cc-smile-jun14.png)
+![](doc_assets/gh-cc-smile-jun14.png)
 
-`deno run --allow-run .../CC-cli/mod.ts -- 1970-06-14 1 3 3 1 4 7 3 4 3 3`
+`deno run --allow-run jsr:@despacito/commit-canvas-cli -- 1970-06-14 1 3 3 1 4 7 3 4 3 3`
 
 ## Usage
 

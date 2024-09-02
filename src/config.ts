@@ -187,6 +187,6 @@ export const currentConfig = {
 	targetFile: 'foo',
 	endUserInfo: {
 		file: 'README.md',
-		msg: 'TODO',
+		msg: 'https://jsr.io/@despacito/commit-canvas-cli',
 	},
 } satisfies Config;

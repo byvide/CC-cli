@@ -40,7 +40,8 @@ export const boolFlags = [
 	},
 	{
 		name: 'let-it-go',
-		des: 'By default, the application deletes all recently created commits (hard reset) when it encounters an error while creating commits for the currently processed dates. Setting this flag instructs the app to continue processing despite errors.',
+		des:
+			'By default, the application deletes all recently created commits (hard reset) when it encounters an error while creating commits for the currently processed dates. Setting this flag instructs the app to continue processing despite errors.',
 	},
 	{
 		name: 'no-commit',
@@ -51,18 +52,21 @@ export const boolFlags = [
 export const stringFlags = [
 	{
 		name: 'cleanse',
-		des: "Prevents execution from halting when the repository is unclean by saving uncommitted changes to a commit dated far into the future. Unlike the reset flag, this does not alter the commit history. The flag's value will be used as the commit message.",
+		des:
+			"Prevents execution from halting when the repository is unclean by saving uncommitted changes to a commit dated far into the future. Unlike the reset flag, this does not alter the commit history. The flag's value will be used as the commit message.",
 		fallback: 'CLEANSE',
 	},
 	{
 		name: 'reset',
-		des: "By default, the application creates commits on top of existing ones if any. Setting this flag squashes and hides all previous commits in a commit dated far into the future while keeping the changes. The flag's value will be used as the commit message.",
+		des:
+			"By default, the application creates commits on top of existing ones if any. Setting this flag squashes and hides all previous commits in a commit dated far into the future while keeping the changes. The flag's value will be used as the commit message.",
 		fallback: 'RESET',
 	},
 	{
 		name: 'direction',
 		alias: 'd',
-		des: "The direction flag determines how to interpret relative day numbers when converting them to dates. For example, '--d + -- 1990-12-23 3' would result in [1990-12-23, 1990-12-26], whereas '-' would result in [1990-12-23, 1990-12-20]. Relative day numbers allows you to quickly and easily set dates relative to the previous date, without manually entering each full date.",
+		des:
+			"The direction flag determines how to interpret relative day numbers when converting them to dates. For example, '--d + -- 1990-12-23 3' would result in [1990-12-23, 1990-12-26], whereas '-' would result in [1990-12-23, 1990-12-20]. Relative day numbers allows you to quickly and easily set dates relative to the previous date, without manually entering each full date.",
 		default: '+',
 	},
 ] as const satisfies StringFlagDef[];
@@ -86,13 +90,11 @@ export const createFlagAliases = () => {
 export const { describeFlag, printHelp } = (() => {
 	const map = {} as { [key in Flag]: string };
 	boolFlags.forEach((item) => {
-		map[item.name] =
-			green((('alias' in item) ? `  --${item.alias}\n` : '') + `  --${item.name}`) +
+		map[item.name] = green((('alias' in item) ? `  --${item.alias}\n` : '') + `  --${item.name}`) +
 			`\n      ${item.des}\n`;
 	});
 	stringFlags.forEach((item) => {
-		map[item.name] =
-			green((('alias' in item) ? `  --${item.alias}\n` : '') + `  --${item.name}`) +
+		map[item.name] = green((('alias' in item) ? `  --${item.alias}\n` : '') + `  --${item.name}`) +
 			`\n      ${item.des}\n` +
 			(('default' in item)
 				? `\n      default value (is overridden if flag is provided): "${item.default}"\n`
